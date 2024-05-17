@@ -39,7 +39,7 @@ Prove syncronisation under the following condition:
         clc -c green -n replicatedMap map get key1
         clc -c blue -n replicatedMap map get key1
         ```
-    - Now simulate network outage by blocking the network between `blue` and `green` cluster by copying the following command in terminal. ***CAUTION-->***I use [pfctl](https://docs.freebsd.org/en/books/handbook/firewalls/#firewalls-pf) to block the network but you can use other mechanism. This can mess up your system network settings. Use with caution.***<--CAUTION***
+    - Now simulate network outage by blocking the network between `blue` and `green` cluster by copying the following command in terminal. ***CAUTION*** I use [pfctl](https://docs.freebsd.org/en/books/handbook/firewalls/#firewalls-pf) to block the network but you can use other mechanism. This can mess up your system network settings. Use with caution. ***CAUTION***
         ```
         sudo cp com.hazelcast.5701.conf /etc/pf.anchors
         sudo pfctl -ef /etc/pf.anchors/com.hazelcast.5701.conf
@@ -68,7 +68,7 @@ Prove syncronisation under the following condition:
         clc -c blue -n replicatedMap map entry-set
         ```
     - Sync from `green` to `blue` cluster using MC. Go to `green` cluster in MC -> WAN Replication -> Sync -> and pick the wan rep, EP and Maps and click on `Sync` button.
-    - ***Issue:***Note that `key1` exists in `blue` cluster but not in `green` cluster. This is because the `key1` was deleted in `green` cluster but as replication queue was overflowing, the delete operation was dropped. A full sync does not fix this but can delta fix this? Lets check.
+    - ***Issue:*** Note that `key1` exists in `blue` cluster but not in `green` cluster. This is because the `key1` was deleted in `green` cluster but as replication queue was overflowing, the delete operation was dropped. A full sync does not fix this but can delta fix this? Lets check.
 
 
 ### Observation
