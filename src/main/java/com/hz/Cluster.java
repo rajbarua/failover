@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import com.hazelcast.config.Config;
+import com.hazelcast.config.ConsistencyCheckStrategy;
 import com.hazelcast.config.WanBatchPublisherConfig;
 import com.hazelcast.config.WanQueueFullBehavior;
 import com.hazelcast.config.WanReplicationConfig;
@@ -14,7 +15,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.spi.merge.LatestUpdateMergePolicy;
 
 public class Cluster {
-    public final static String LICENSE = "/Users/raj/hazelcast/demo.license.old";
+    public final static String LICENSE = System.getProperty("user.home") + "/hazelcast/demo.license.old";
     public final static String IP = "127.0.0.1";
     public final static int BLUE_CLUSTER_PORT = 5701;
     public final static int GREEN_CLUSTER_PORT = 5702;
@@ -49,8 +50,13 @@ public class Cluster {
                 .setPublisherId(clusterName + "-" + targetClusterName)
                 .setClusterName(targetClusterName)
                 .setTargetEndpoints(targetCluster)
+                //set low queue capacity to test queue full behavior
                 .setQueueCapacity(queueCapacity)
+                //simply drop messages from WAN queue if queue is full
                 .setQueueFullBehavior(WanQueueFullBehavior.DISCARD_AFTER_MUTATION);
+            //set merkle tree
+            batchPublisherConfig1.getSyncConfig().setConsistencyCheckStrategy(ConsistencyCheckStrategy.MERKLE_TREES);
+
             wrConfig.addBatchReplicationPublisherConfig(batchPublisherConfig1);
             //redundant config as per customer
 
@@ -60,7 +66,8 @@ public class Cluster {
         config.getMapConfig("replicatedMap").setPerEntryStatsEnabled(true);
         config.getMapConfig("replicatedMap").setWanReplicationRef(new WanReplicationRef().setRepublishingEnabled(true)
             .setMergePolicyClassName(LatestUpdateMergePolicy.class.getName()).setName(wrConfig.getName()));
-        
+        //configure merkle tree
+        config.getMapConfig("replicatedMap").getMerkleTreeConfig().setEnabled(true);
         
         return Hazelcast.newHazelcastInstance(config);
     }

@@ -39,7 +39,7 @@ Prove syncronisation under the following condition:
         clc -c green -n replicatedMap map get key1
         clc -c blue -n replicatedMap map get key1
         ```
-    - Now simulate network outage by blocking the network between `blue` and `green` cluster by copying the following command in terminal. **<span style="color:red;">CAUTION--></span>**I use [pfctl](https://docs.freebsd.org/en/books/handbook/firewalls/#firewalls-pf) to block the network but you can use other mechanism. This can mess up your system network settings. Use with caution.**<span style="color:red;"><--CAUTION</span>**
+    - Now simulate network outage by blocking the network between `blue` and `green` cluster by copying the following command in terminal. ***CAUTION-->***I use [pfctl](https://docs.freebsd.org/en/books/handbook/firewalls/#firewalls-pf) to block the network but you can use other mechanism. This can mess up your system network settings. Use with caution.***<--CAUTION***
         ```
         sudo cp com.hazelcast.5701.conf /etc/pf.anchors
         sudo pfctl -ef /etc/pf.anchors/com.hazelcast.5701.conf
@@ -68,7 +68,14 @@ Prove syncronisation under the following condition:
         clc -c blue -n replicatedMap map entry-set
         ```
     - Sync from `green` to `blue` cluster using MC. Go to `green` cluster in MC -> WAN Replication -> Sync -> and pick the wan rep, EP and Maps and click on `Sync` button.
-    - **<span style="color:red;">Issue:</span>**Note that `key1` exists in `blue` cluster but not in `green` cluster. This is because the `key1` was deleted in `green` cluster but as replication queue was overflowing, the delete operation was dropped. A full sync does not fix this but can delta fix this? Lets check. 
+    - ***Issue:***Note that `key1` exists in `blue` cluster but not in `green` cluster. This is because the `key1` was deleted in `green` cluster but as replication queue was overflowing, the delete operation was dropped. A full sync does not fix this but can delta fix this? Lets check.
+
+
+### Observation
+While enabling Merkle help reduce the amount of data that is transferred but it does not take care of entries which are deleted in source cluster. Once Merkle tree comparision are run and it is observed that there are entries in target cluster which are not there in source cluster, then such a target cluster needs to be restarted and a full manual sync need to be done from source cluster. 
+Merkle tree setup is useful and must be done with care: https://docs.hazelcast.com/hazelcast/5.4/wan/advanced-features#delta-wan-synchronization
+MC uses Merkle tree if it is configured for the Map but if number of Maps to be repliacted are large it is best to sync Maps individually or in batches. Both MC or Rest API can be used to sync Maps.
+
 ## Clint Failover
 Demonstrate client failover by shutting off one cluster and observing the switch over. Use classes `Cluster` and `Client`.
 
