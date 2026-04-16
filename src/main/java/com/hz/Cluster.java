@@ -9,10 +9,13 @@ import java.util.Properties;
 import com.hazelcast.config.Config;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.instance.BuildInfoProvider;
 
 public class Cluster {
     private static final String BLUE_CONFIG_RESOURCE = "blue.xml";
     private static final String GREEN_CONFIG_RESOURCE = "green.xml";
+    private static final String BLUE_CONFIG_RESOURCE_52 = "blue-5.2.xml";
+    private static final String GREEN_CONFIG_RESOURCE_52 = "green-5.2.xml";
     private static final int BLUE_REST_PORT = 6701;
     private static final int GREEN_REST_PORT = 6702;
     public static final String LICENSE_PATH_PROPERTY = "hazelcast.enterprise.license.path";
@@ -136,10 +139,23 @@ public class Cluster {
     ) throws IOException {
         Config config = Config.loadFromClasspath(
                 Cluster.class.getClassLoader(),
-                configResource,
+                versionedConfigResource(configResource),
                 runtimeProperties(clusterName, port, restPort, targetClusterName, targetCluster, queueCapacity));
         config.setLicenseKey(resolveLicenseKey());
         return config;
+    }
+
+    private String versionedConfigResource(String configResource) {
+        String hazelcastVersion = BuildInfoProvider.getBuildInfo().getVersion();
+        if (hazelcastVersion != null && hazelcastVersion.startsWith("5.2.")) {
+            if (BLUE_CONFIG_RESOURCE.equals(configResource)) {
+                return BLUE_CONFIG_RESOURCE_52;
+            }
+            if (GREEN_CONFIG_RESOURCE.equals(configResource)) {
+                return GREEN_CONFIG_RESOURCE_52;
+            }
+        }
+        return configResource;
     }
 
     private Properties runtimeProperties(

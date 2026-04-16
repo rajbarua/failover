@@ -8,6 +8,7 @@
     <artifactId>failover</artifactId>
     <version>1.0-SNAPSHOT</version>
     <properties>
+        <hazelcast.version>5.6.0</hazelcast.version>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
@@ -17,7 +18,7 @@
         <dependency>
             <groupId>com.hazelcast</groupId>
             <artifactId>hazelcast-enterprise</artifactId>
-            <version>5.6.0</version>
+            <version>${hazelcast.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -13,6 +13,7 @@ import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.instance.BuildInfoProvider;
 import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.json.Json;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class WanSyncRestApiTest {
+    private static final String HAZELCAST_VERSION = BuildInfoProvider.getBuildInfo().getVersion();
 
     @Test
     void syncMapViaRestApiRepairsRestartedTargetCluster() throws Exception {
@@ -61,9 +63,13 @@ class WanSyncRestApiTest {
             assertTrue(restartedBlueMap.containsKey("key3"));
 
             UUID syncId = clusters.triggerMapSync();
-            SyncProgress progress = clusters.awaitSyncFinished(syncId);
-            assertEquals("FINISHED", progress.stage());
-            assertEquals(100, progress.progress());
+            if (supportsSyncProgressEndpoint()) {
+                SyncProgress progress = clusters.awaitSyncFinished(syncId);
+                assertEquals("FINISHED", progress.stage());
+                assertEquals(100, progress.progress());
+            } else {
+                assertSyncProgressEndpointUnavailable(clusters.fetchSyncProgress(syncId));
+            }
 
             waitUntil(() -> {
                 IMap<String, String> targetMap = clusters.blue().getMap(Cluster.MAP_NAME);
@@ -98,10 +104,24 @@ class WanSyncRestApiTest {
             clusters.startGreen();
 
             HttpJsonResponse response = clusters.fetchSyncProgress(UUID.randomUUID());
-            assertEquals(200, response.statusCode());
-            assertEquals("fail", response.body().getString("status", ""));
-            assertTrue(response.body().getString("message", "").contains("couldn't be found"));
+            if (supportsSyncProgressEndpoint()) {
+                assertEquals(200, response.statusCode());
+                assertEquals("fail", response.body().getString("status", ""));
+                assertTrue(response.body().getString("message", "").contains("couldn't be found"));
+            } else {
+                assertSyncProgressEndpointUnavailable(response);
+            }
         }
+    }
+
+    private static boolean supportsSyncProgressEndpoint() {
+        return !HAZELCAST_VERSION.startsWith("5.2.");
+    }
+
+    private static void assertSyncProgressEndpointUnavailable(HttpJsonResponse response) {
+        assertEquals(404, response.statusCode());
+        assertEquals("", response.rawBody());
+        assertFalse(response.hasJsonBody());
     }
 
     private static void waitUntil(BooleanSupplier condition, Duration timeout, String description) throws InterruptedException {
@@ -135,15 +155,25 @@ class WanSyncRestApiTest {
 
     private static final class HttpJsonResponse {
         private final int statusCode;
+        private final String rawBody;
         private final JsonObject body;
 
-        private HttpJsonResponse(int statusCode, JsonObject body) {
+        private HttpJsonResponse(int statusCode, String rawBody, JsonObject body) {
             this.statusCode = statusCode;
+            this.rawBody = rawBody;
             this.body = body;
         }
 
         private int statusCode() {
             return statusCode;
+        }
+
+        private String rawBody() {
+            return rawBody;
+        }
+
+        private boolean hasJsonBody() {
+            return body != null;
         }
 
         private JsonObject body() {
@@ -253,7 +283,7 @@ class WanSyncRestApiTest {
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            return new HttpJsonResponse(response.statusCode(), Json.parse(response.body()).asObject());
+            return jsonResponse(response);
         }
 
         private HttpJsonResponse get(String path) throws IOException, InterruptedException {
@@ -263,7 +293,15 @@ class WanSyncRestApiTest {
                     .GET()
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            return new HttpJsonResponse(response.statusCode(), Json.parse(response.body()).asObject());
+            return jsonResponse(response);
+        }
+
+        private static HttpJsonResponse jsonResponse(HttpResponse<String> response) {
+            String rawBody = response.body();
+            JsonObject jsonBody = rawBody == null || rawBody.isBlank()
+                    ? null
+                    : Json.parse(rawBody).asObject();
+            return new HttpJsonResponse(response.statusCode(), rawBody == null ? "" : rawBody, jsonBody);
         }
 
         private static String joinEncoded(String... values) {
